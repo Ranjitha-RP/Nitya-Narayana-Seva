@@ -1,0 +1,6 @@
+{
+  "name": "Nitya Narayana Seva - Volunteer Management Platform",
+  "description": "A centralized volunteer management platform for Nitya Narayana Seva (NNS) food distribution initiative at Kidwai Memorial Institute of Oncology, Bengaluru. A Little Help. A Lot of Humanity.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --color-ivory: #FFFDF7;
+  --color-gold: #C49A45;
+  --color-gold-dark: #A57F32;
+  --color-cream: #F5EEDC;
+  --color-rose: #D9A6A5;
+  --color-brown: #45382F;
+  --color-brown-light: #615043;
+  --color-sage: #819B82;
+  --color-sage-dark: #688269;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #FFFDF7;
+  color: #45382F;
+}
+
+/* Custom smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Tabular figures for data tables and counts */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
