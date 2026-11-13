@@ -27,7 +27,44 @@ export const setSupabaseConfig = (url: string, key?: string) => {
   cachedClient = null; // reset cached instance
 };
 
+// Optional separate Supabase configuration specifically for Volunteer Accounts
+export const getVolunteerSupabaseConfig = () => {
+  const envUrl = (import.meta as any).env?.VITE_VOLUNTEER_SUPABASE_URL || '';
+  const storedUrl =
+    typeof window !== 'undefined' ? localStorage.getItem('nns_volunteer_supabase_url') || '' : '';
+  const envKey = (import.meta as any).env?.VITE_VOLUNTEER_SUPABASE_PUBLISHABLE_KEY || '';
+  const storedKey =
+    typeof window !== 'undefined' ? localStorage.getItem('nns_volunteer_supabase_key') || '' : '';
+
+  const main = getSupabaseConfig();
+  const customUrl = (envUrl || storedUrl).trim();
+  const customKey = (envKey || storedKey).trim();
+
+  return {
+    url: customUrl || main.url,
+    key: customKey || main.key,
+    isSeparateDb: Boolean(customUrl && customUrl !== main.url),
+  };
+};
+
+export const setVolunteerSupabaseConfig = (url: string, key?: string) => {
+  if (typeof window !== 'undefined') {
+    if (url.trim()) {
+      localStorage.setItem('nns_volunteer_supabase_url', url.trim());
+    } else {
+      localStorage.removeItem('nns_volunteer_supabase_url');
+    }
+    if (key && key.trim()) {
+      localStorage.setItem('nns_volunteer_supabase_key', key.trim());
+    } else if (!url.trim()) {
+      localStorage.removeItem('nns_volunteer_supabase_key');
+    }
+  }
+  cachedVolunteerClient = null;
+};
+
 let cachedClient: SupabaseClient | null = null;
+let cachedVolunteerClient: SupabaseClient | null = null;
 
 export const getSupabaseClient = (): SupabaseClient | null => {
   if (cachedClient) return cachedClient;
@@ -48,8 +85,64 @@ export const getSupabaseClient = (): SupabaseClient | null => {
   }
 };
 
+export const getVolunteerSupabaseClient = (): SupabaseClient | null => {
+  const { url, key, isSeparateDb } = getVolunteerSupabaseConfig();
+  if (!isSeparateDb) {
+    return getSupabaseClient();
+  }
+  if (cachedVolunteerClient) return cachedVolunteerClient;
+  if (!url || !key) return getSupabaseClient();
+
+  try {
+    cachedVolunteerClient = createClient(url, key, {
+      auth: {
+        persistSession: false,
+      },
+    });
+    return cachedVolunteerClient;
+  } catch (err) {
+    console.warn('Failed to initialize Volunteer Supabase client:', err);
+    return getSupabaseClient();
+  }
+};
+
 /**
- * SQL script for creating the required tables and public policies in Supabase SQL Editor.
+ * Standalone SQL script ONLY for the Volunteer Accounts table (nns_volunteers).
+ * Safe to run in the same Supabase project OR a separate Volunteer Supabase database.
+ */
+export const VOLUNTEER_SUPABASE_SQL_SCHEMA = `-- NNS Volunteer Accounts & Profile Table
+CREATE TABLE IF NOT EXISTS public.nns_volunteers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    phone TEXT DEFAULT '',
+    email TEXT NOT NULL UNIQUE,
+    password TEXT DEFAULT '',
+    auth_provider TEXT DEFAULT 'email',
+    gender TEXT,
+    city TEXT DEFAULT 'Bengaluru',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_login_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE public.nns_volunteers ENABLE ROW LEVEL SECURITY;
+
+-- Public RLS Policies (idempotent with DROP IF EXISTS)
+DROP POLICY IF EXISTS "Allow public read on volunteers" ON public.nns_volunteers;
+CREATE POLICY "Allow public read on volunteers" ON public.nns_volunteers FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert on volunteers" ON public.nns_volunteers;
+CREATE POLICY "Allow public insert on volunteers" ON public.nns_volunteers FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public update on volunteers" ON public.nns_volunteers;
+CREATE POLICY "Allow public update on volunteers" ON public.nns_volunteers FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Allow public delete on volunteers" ON public.nns_volunteers;
+CREATE POLICY "Allow public delete on volunteers" ON public.nns_volunteers FOR DELETE USING (true);
+`;
+
+/**
+ * Complete SQL script for creating all NNS tables and public policies in Supabase SQL Editor.
  */
 export const SUPABASE_SQL_SCHEMA = `-- 1. NNS Volunteer Requirements Table
 CREATE TABLE IF NOT EXISTS public.nns_requirements (
@@ -95,12 +188,27 @@ CREATE TABLE IF NOT EXISTS public.nns_coordinators (
     last_login_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Enable Row Level Security (RLS)
+-- 4. NNS Volunteer Accounts & Profile Table
+CREATE TABLE IF NOT EXISTS public.nns_volunteers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    phone TEXT DEFAULT '',
+    email TEXT NOT NULL UNIQUE,
+    password TEXT DEFAULT '',
+    auth_provider TEXT DEFAULT 'email',
+    gender TEXT,
+    city TEXT DEFAULT 'Bengaluru',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_login_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. Enable Row Level Security (RLS)
 ALTER TABLE public.nns_requirements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.nns_registrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.nns_coordinators ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.nns_volunteers ENABLE ROW LEVEL SECURITY;
 
--- 5. Public read/write policies with DROP IF EXISTS (idempotent, safe to rerun anytime)
+-- 6. Public read/write policies with DROP IF EXISTS (idempotent, safe to rerun anytime)
 DROP POLICY IF EXISTS "Allow public read on requirements" ON public.nns_requirements;
 CREATE POLICY "Allow public read on requirements" ON public.nns_requirements FOR SELECT USING (true);
 
@@ -136,4 +244,16 @@ CREATE POLICY "Allow public update on coordinators" ON public.nns_coordinators F
 
 DROP POLICY IF EXISTS "Allow public delete on coordinators" ON public.nns_coordinators;
 CREATE POLICY "Allow public delete on coordinators" ON public.nns_coordinators FOR DELETE USING (true);
+
+DROP POLICY IF EXISTS "Allow public read on volunteers" ON public.nns_volunteers;
+CREATE POLICY "Allow public read on volunteers" ON public.nns_volunteers FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert on volunteers" ON public.nns_volunteers;
+CREATE POLICY "Allow public insert on volunteers" ON public.nns_volunteers FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public update on volunteers" ON public.nns_volunteers;
+CREATE POLICY "Allow public update on volunteers" ON public.nns_volunteers FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Allow public delete on volunteers" ON public.nns_volunteers;
+CREATE POLICY "Allow public delete on volunteers" ON public.nns_volunteers FOR DELETE USING (true);
 `;

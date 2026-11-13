@@ -27,7 +27,7 @@ export const VolunteerRegistrationModal: React.FC<VolunteerRegistrationModalProp
   selectedRequirement,
   onViewMyRegistrations,
 }) => {
-  const { requirements, registerVolunteer } = useSeva();
+  const { requirements, registerVolunteer, currentVolunteer } = useSeva();
 
   // Determine initial selected requirement safely
   const initialReqId =
@@ -349,9 +349,24 @@ export const VolunteerRegistrationModal: React.FC<VolunteerRegistrationModalProp
 
               {/* Full Name */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#45382F]/80 mb-1.5">
-                  2. Full Name
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#45382F]/80">
+                    2. Full Name
+                  </label>
+                  {currentVolunteer && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (currentVolunteer.name) setFullName(currentVolunteer.name);
+                        if (currentVolunteer.phone) setMobile(currentVolunteer.phone);
+                        if (currentVolunteer.gender) setGender(currentVolunteer.gender);
+                      }}
+                      className="text-[11px] font-semibold text-[#C49A45] hover:underline cursor-pointer"
+                    >
+                      Use My Account Details
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <User className="w-4 h-4 text-[#45382F]/40 absolute left-4 top-3.5" />
                   <input

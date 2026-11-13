@@ -6,12 +6,16 @@ import {
   OpportunityStatus,
   AttendanceStatus,
   CoordinatorProfile,
+  VolunteerProfile,
 } from '../types';
 
 import {
   getSupabaseClient,
   getSupabaseConfig,
   setSupabaseConfig,
+  getVolunteerSupabaseClient,
+  getVolunteerSupabaseConfig,
+  setVolunteerSupabaseConfig,
 } from '../lib/supabase';
 
 interface SevaContextType {
@@ -55,10 +59,30 @@ interface SevaContextType {
   markAttendance: (registrationId: string, status: AttendanceStatus) => void;
   resetDemoData: () => void;
   generateWhatsAppAnnouncement: (requirementId: string) => string;
+  // Volunteer Authentication & Account
+  isVolunteerLoggedIn: boolean;
+  currentVolunteer: VolunteerProfile | null;
+  registerOrLoginVolunteerAccount: (params: {
+    name: string;
+    phone: string;
+    email: string;
+    pin: string;
+    confirmPin: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+  updateVolunteerProfile: (
+    updates: Partial<VolunteerProfile>
+  ) => Promise<{ success: boolean; error?: string }>;
+  logoutVolunteer: () => void;
   // Supabase Backend Integration
   isSupabaseConnected: boolean;
   supabaseProjectUrl: string;
   updateSupabaseUrl: (url: string) => Promise<{ success: boolean; error?: string }>;
+  volunteerSupabaseUrl: string;
+  isSeparateVolunteerDb: boolean;
+  updateVolunteerSupabaseConfig: (
+    url: string,
+    key: string
+  ) => Promise<{ success: boolean; error?: string }>;
   isSyncing: boolean;
   syncWithSupabase: () => Promise<void>;
 }
@@ -68,6 +92,9 @@ const STORAGE_KEY_REG = 'nns_registrations_clean_v5';
 const STORAGE_KEY_VOL_MOBILE = 'nns_volunteer_mobile_clean_v5';
 const STORAGE_KEY_COORD_AUTH = 'nns_coord_auth_clean_v5';
 const STORAGE_KEY_COORD_PROFILE = 'nns_coord_profile_v5';
+const STORAGE_KEY_VOL_AUTH = 'nns_vol_auth_v5';
+const STORAGE_KEY_VOL_PROFILE = 'nns_vol_profile_v5';
+const STORAGE_KEY_VOL_ACCOUNTS = 'nns_vol_accounts_v5';
 
 // Clear out legacy mock data from previous version if present in localStorage
 try {
@@ -167,10 +194,44 @@ export const SevaProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   });
 
+  const [isVolunteerLoggedIn, setIsVolunteerLoggedIn] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY_VOL_AUTH) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [currentVolunteer, setCurrentVolunteer] = useState<VolunteerProfile | null>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_VOL_PROFILE);
+      if (stored) return JSON.parse(stored);
+    } catch {
+      // fallback
+    }
+    return null;
+  });
+
+  const [volunteerAccounts, setVolunteerAccounts] = useState<VolunteerProfile[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_VOL_ACCOUNTS);
+      if (stored) return JSON.parse(stored);
+    } catch {
+      // fallback
+    }
+    return [];
+  });
+
   // Supabase state
   const [isSupabaseConnected, setIsSupabaseConnected] = useState<boolean>(false);
   const [supabaseProjectUrl, setSupabaseProjectUrl] = useState<string>(() => {
     return getSupabaseConfig().url;
+  });
+  const [volunteerSupabaseUrl, setVolunteerSupabaseUrl] = useState<string>(() => {
+    return getVolunteerSupabaseConfig().url;
+  });
+  const [isSeparateVolunteerDb, setIsSeparateVolunteerDb] = useState<boolean>(() => {
+    return getVolunteerSupabaseConfig().isSeparateDb;
   });
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
@@ -236,6 +297,45 @@ export const SevaProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // non-blocking
       }
 
+      // Sync volunteer accounts from Supabase (main or separate volunteer DB)
+      try {
+        const volClient = getVolunteerSupabaseClient() || client;
+        const { data: volData, error: volErr } = await volClient
+          .from('nns_volunteers')
+          .select('*');
+
+        if (!volErr && volData && volData.length > 0) {
+          const mappedVols: VolunteerProfile[] = volData.map((v: any) => ({
+            id: v.id,
+            name: v.name,
+            phone: v.phone || '',
+            email: (v.email || '').toLowerCase(),
+            password: v.password || '',
+            authProvider: (v.auth_provider as 'email' | 'google') || 'email',
+            gender: v.gender as Gender | undefined,
+            city: v.city || 'Bengaluru',
+            createdAt: v.created_at || new Date().toISOString(),
+            lastLoginAt: v.last_login_at || new Date().toISOString(),
+          }));
+          setVolunteerAccounts(mappedVols);
+          localStorage.setItem(STORAGE_KEY_VOL_ACCOUNTS, JSON.stringify(mappedVols));
+
+          const storedVolStr = localStorage.getItem(STORAGE_KEY_VOL_PROFILE);
+          const localVol = storedVolStr ? JSON.parse(storedVolStr) : null;
+          if (localVol?.email) {
+            const match = mappedVols.find(
+              (v) => v.email.toLowerCase() === localVol.email.toLowerCase()
+            );
+            if (match) {
+              setCurrentVolunteer(match);
+              localStorage.setItem(STORAGE_KEY_VOL_PROFILE, JSON.stringify(match));
+            }
+          }
+        }
+      } catch {
+        // non-blocking
+      }
+
       if (!reqErr && !regErr) {
         setIsSupabaseConnected(true);
       }
@@ -275,6 +375,34 @@ export const SevaProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Failed to connect to Supabase.' };
+    }
+  };
+
+  const updateVolunteerSupabaseConfig = async (url: string, key: string) => {
+    setVolunteerSupabaseConfig(url, key);
+    const cfg = getVolunteerSupabaseConfig();
+    setVolunteerSupabaseUrl(cfg.url);
+    setIsSeparateVolunteerDb(cfg.isSeparateDb);
+
+    const volClient = getVolunteerSupabaseClient();
+    if (!volClient) {
+      return { success: false, error: 'Please enter a valid Volunteer Supabase URL and Publishable Key.' };
+    }
+    try {
+      const { error } = await volClient.from('nns_volunteers').select('id').limit(1);
+      if (error) {
+        if (error.message.includes('relation') || error.message.includes('does not exist') || error.message.includes('schema cache')) {
+          return {
+            success: true,
+            error: 'Connected to Volunteer Supabase project! Please run the nns_volunteers SQL query in your Supabase SQL Editor.',
+          };
+        }
+        return { success: false, error: error.message };
+      }
+      await syncWithSupabase();
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to connect to Volunteer Supabase database.' };
     }
   };
 
@@ -486,6 +614,197 @@ export const SevaProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       localStorage.setItem(STORAGE_KEY_COORD_AUTH, 'false');
       localStorage.removeItem(STORAGE_KEY_COORD_PROFILE);
+    } catch {
+      // ignore
+    }
+  };
+
+  const persistVolunteerSession = (profile: VolunteerProfile) => {
+    setCurrentVolunteer(profile);
+    setIsVolunteerLoggedIn(true);
+    if (profile.phone) {
+      setCurrentVolunteerMobile(profile.phone);
+    }
+    setVolunteerAccounts((prev) => {
+      const idx = prev.findIndex((v) => v.email.toLowerCase() === profile.email.toLowerCase());
+      const next = idx >= 0 ? prev.map((v, i) => (i === idx ? profile : v)) : [profile, ...prev];
+      try {
+        localStorage.setItem(STORAGE_KEY_VOL_ACCOUNTS, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+    try {
+      localStorage.setItem(STORAGE_KEY_VOL_PROFILE, JSON.stringify(profile));
+      localStorage.setItem(STORAGE_KEY_VOL_AUTH, 'true');
+    } catch {
+      // ignore
+    }
+  };
+
+  const upsertVolunteerToSupabase = async (profile: VolunteerProfile) => {
+    const volClient = getVolunteerSupabaseClient() || getSupabaseClient();
+    if (!volClient) return;
+    try {
+      await volClient.from('nns_volunteers').upsert(
+        {
+          id: profile.id,
+          name: profile.name,
+          phone: profile.phone || '',
+          email: profile.email.toLowerCase(),
+          password: profile.password || '',
+          auth_provider: profile.authProvider,
+          gender: profile.gender || null,
+          city: profile.city || 'Bengaluru',
+          created_at: profile.createdAt,
+          last_login_at: profile.lastLoginAt,
+        },
+        { onConflict: 'email' }
+      );
+    } catch (e) {
+      console.warn('Volunteer Supabase sync notice:', e);
+    }
+  };
+
+  const findVolunteerByEmail = async (cleanEmail: string): Promise<VolunteerProfile | null> => {
+    const volClient = getVolunteerSupabaseClient() || getSupabaseClient();
+    if (volClient) {
+      try {
+        const { data, error } = await volClient
+          .from('nns_volunteers')
+          .select('*')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+
+        if (!error && data) {
+          return {
+            id: data.id,
+            name: data.name,
+            phone: data.phone || '',
+            email: (data.email || cleanEmail).toLowerCase(),
+            password: data.password || '',
+            authProvider: (data.auth_provider as 'email' | 'google') || 'email',
+            gender: data.gender as Gender | undefined,
+            city: data.city || 'Bengaluru',
+            createdAt: data.created_at || new Date().toISOString(),
+            lastLoginAt: data.last_login_at || new Date().toISOString(),
+          };
+        }
+      } catch {
+        // fallback to local registry
+      }
+    }
+
+    const localMatch = volunteerAccounts.find(
+      (v) => v.email.toLowerCase() === cleanEmail.toLowerCase()
+    );
+    return localMatch || null;
+  };
+
+  const registerOrLoginVolunteerAccount = async ({
+    name,
+    phone,
+    email,
+    pin,
+    confirmPin,
+  }: {
+    name: string;
+    phone: string;
+    email: string;
+    pin: string;
+    confirmPin: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    const cleanName = name.trim();
+    const cleanPhone = phone.trim().replace(/\D/g, '');
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPin = pin.trim().replace(/\D/g, '');
+    const cleanConfirmPin = confirmPin.trim().replace(/\D/g, '');
+
+    if (!cleanName) {
+      return { success: false, error: 'Please enter your full name.' };
+    }
+    if (cleanPhone.length < 10) {
+      return { success: false, error: 'Please enter a valid 10-digit mobile number.' };
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail)) {
+      return { success: false, error: 'Please enter a valid email address (e.g. name@example.com).' };
+    }
+    if (!/^(\d{4}|\d{6})$/.test(cleanPin)) {
+      return { success: false, error: 'Please set a valid 4-digit or 6-digit numeric Security PIN.' };
+    }
+    if (cleanPin !== cleanConfirmPin) {
+      return {
+        success: false,
+        error: 'PIN not correct: The re-entered confirmation PIN does not match the Security PIN you set.',
+      };
+    }
+
+    const existing = await findVolunteerByEmail(cleanEmail);
+    const now = new Date().toISOString();
+
+    if (existing) {
+      if (existing.password && existing.password !== cleanPin) {
+        return {
+          success: false,
+          error:
+            'PIN not correct: An account with this email already exists with a different Security PIN.',
+        };
+      }
+
+      const updated: VolunteerProfile = {
+        ...existing,
+        name: cleanName || existing.name,
+        phone: cleanPhone || existing.phone,
+        password: existing.password || cleanPin,
+        authProvider: 'email',
+        lastLoginAt: now,
+      };
+      persistVolunteerSession(updated);
+      await upsertVolunteerToSupabase(updated);
+      return { success: true };
+    }
+
+    const newProfile: VolunteerProfile = {
+      id: `vol-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      name: cleanName,
+      phone: cleanPhone,
+      email: cleanEmail,
+      password: cleanPin,
+      authProvider: 'email',
+      city: 'Bengaluru',
+      createdAt: now,
+      lastLoginAt: now,
+    };
+
+    persistVolunteerSession(newProfile);
+    await upsertVolunteerToSupabase(newProfile);
+    return { success: true };
+  };
+
+  const updateVolunteerProfile = async (
+    updates: Partial<VolunteerProfile>
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!currentVolunteer) {
+      return { success: false, error: 'No logged-in volunteer session found.' };
+    }
+    const updated: VolunteerProfile = {
+      ...currentVolunteer,
+      ...updates,
+    };
+    persistVolunteerSession(updated);
+    await upsertVolunteerToSupabase(updated);
+    return { success: true };
+  };
+
+  const logoutVolunteer = () => {
+    setIsVolunteerLoggedIn(false);
+    setCurrentVolunteer(null);
+    setCurrentVolunteerMobile('');
+    try {
+      localStorage.setItem(STORAGE_KEY_VOL_AUTH, 'false');
+      localStorage.removeItem(STORAGE_KEY_VOL_PROFILE);
+      localStorage.removeItem(STORAGE_KEY_VOL_MOBILE);
     } catch {
       // ignore
     }
@@ -920,9 +1239,17 @@ _Note:_ Please register through our platform to avoid manual tracking and ensure
         markAttendance,
         resetDemoData,
         generateWhatsAppAnnouncement,
+        isVolunteerLoggedIn,
+        currentVolunteer,
+        registerOrLoginVolunteerAccount,
+        updateVolunteerProfile,
+        logoutVolunteer,
         isSupabaseConnected,
         supabaseProjectUrl,
         updateSupabaseUrl,
+        volunteerSupabaseUrl,
+        isSeparateVolunteerDb,
+        updateVolunteerSupabaseConfig,
         isSyncing,
         syncWithSupabase,
       }}

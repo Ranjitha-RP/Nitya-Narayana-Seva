@@ -47,6 +47,19 @@ export interface CoordinatorProfile {
   lastLoginAt: string;
 }
 
+export interface VolunteerProfile {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  password?: string;
+  authProvider: 'email' | 'google';
+  gender?: Gender;
+  city?: string;
+  createdAt: string;
+  lastLoginAt: string;
+}
+
 export interface DailyStats {
   volunteersRequiredToday: number;
   volunteersRegisteredToday: number;

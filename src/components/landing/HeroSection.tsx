@@ -104,7 +104,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
             <div className="space-y-0.5">
               <div className="font-serif text-2xl sm:text-3xl font-bold text-[#819B82] tabular-nums">
-                1,200+
+                80+
               </div>
               <div className="text-xs sm:text-sm text-white/75 font-medium">
                 Volunteers in Network

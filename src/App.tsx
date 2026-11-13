@@ -21,25 +21,50 @@ import { WhatsAppCommunityStrip } from './components/landing/WhatsAppCommunitySt
 import { VolunteerDashboard } from './components/volunteer/VolunteerDashboard';
 import { VolunteerRegistrationModal } from './components/volunteer/VolunteerRegistrationModal';
 import { MyRegistrationsView } from './components/volunteer/MyRegistrationsView';
+import { VolunteerLoginView } from './components/volunteer/VolunteerLoginView';
+import { VolunteerAccountView } from './components/volunteer/VolunteerAccountView';
 import { CoordinatorLoginModal } from './components/coordinator/CoordinatorLoginModal';
 import { CoordinatorDashboard } from './components/coordinator/CoordinatorDashboard';
 import { VolunteerRequirement } from './types';
 
 const MainApp: React.FC = () => {
-  const { isCoordinatorLoggedIn, logoutCoordinator } = useSeva();
+  const {
+    isCoordinatorLoggedIn,
+    logoutCoordinator,
+    isVolunteerLoggedIn,
+    currentVolunteer,
+    logoutVolunteer,
+  } = useSeva();
+
   const [activePage, setActivePage] = useState<ActivePage>('home');
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [isCoordinatorModalOpen, setIsCoordinatorModalOpen] = useState(false);
   const [selectedReqForModal, setSelectedReqForModal] = useState<VolunteerRequirement | null>(null);
+  const [pendingRegisterAfterLogin, setPendingRegisterAfterLogin] = useState(false);
 
   const handleOpenRegister = (req?: VolunteerRequirement) => {
     setSelectedReqForModal(req || null);
+    if (!isVolunteerLoggedIn) {
+      setPendingRegisterAfterLogin(Boolean(req));
+      setActivePage('volunteer-dashboard');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setIsRegisterModalOpen(true);
   };
 
   const handleNavigate = (page: ActivePage) => {
     setActivePage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleVolunteerLoginSuccess = (targetPage: ActivePage) => {
+    setActivePage(targetPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (pendingRegisterAfterLogin) {
+      setPendingRegisterAfterLogin(false);
+      setIsRegisterModalOpen(true);
+    }
   };
 
   return (
@@ -55,6 +80,8 @@ const MainApp: React.FC = () => {
           logoutCoordinator();
           handleNavigate('home');
         }}
+        isVolunteerLoggedIn={isVolunteerLoggedIn}
+        volunteerName={currentVolunteer?.name}
       />
 
       {/* Main Content Area based on Active Page */}
@@ -67,17 +94,17 @@ const MainApp: React.FC = () => {
               onExploreClick={() => handleNavigate('volunteer-dashboard')}
             />
 
-            {/* 2. Common Needs / Core Seva Commitments (3 elevated cards with center highlight) */}
+            {/* 2. Common Needs / Core Seva Commitments */}
             <CommonNeedsSection />
 
-            {/* 3. Bento Service Grid (4 cards with photo & impact badge) */}
+            {/* 3. Bento Service Grid */}
             <BentoServiceGrid
               onViewAllOpportunities={() => handleNavigate('volunteer-dashboard')}
             />
 
-            {/* 4. Quick Slot Finder Banner (dark curved container matching theme) */}
+            {/* 4. Quick Slot Finder Banner */}
             <QuickSlotFinderBanner
-              onSelectDate={(date) => {
+              onSelectDate={() => {
                 handleNavigate('volunteer-dashboard');
               }}
             />
@@ -88,29 +115,57 @@ const MainApp: React.FC = () => {
               onViewAllOpportunities={() => handleNavigate('volunteer-dashboard')}
             />
 
-            {/* 6. Why Volunteer Section (Interactive list with arrows + right photo) */}
+            {/* 6. Why Volunteer Section */}
             <WhyVolunteerSection />
 
-            {/* 7. How It Works (3 Steps: Discover, Register, Serve) */}
+            {/* 7. How It Works */}
             <HowItWorksSection onRegisterClick={() => handleOpenRegister()} />
 
-            {/* 8. Volunteer Guidelines & Resources (3 photo cards matching theme) */}
+            {/* 8. Volunteer Guidelines & Resources */}
             <SevaInsightsSection />
 
-            {/* 9. FAQ Section (Accordion on left + coordinator card on right) */}
-            <FaqSection onContactCoordinators={() => setIsCoordinatorModalOpen(true)} />
+            {/* 9. FAQ Section */}
+            <FaqSection />
 
             {/* 10. WhatsApp Community Network Strip */}
             <WhatsAppCommunityStrip />
           </div>
         )}
 
-        {activePage === 'volunteer-dashboard' && (
-          <VolunteerDashboard
-            onOpenRegisterModal={handleOpenRegister}
-            onNavigateToMyRegistrations={() => handleNavigate('my-registrations')}
-          />
-        )}
+        {activePage === 'volunteer-dashboard' &&
+          (isVolunteerLoggedIn ? (
+            <VolunteerDashboard
+              onOpenRegisterModal={handleOpenRegister}
+              onNavigateToMyRegistrations={() => handleNavigate('my-registrations')}
+              onNavigateToMyAccount={() => handleNavigate('volunteer-account')}
+              onLogoutVolunteer={() => {
+                logoutVolunteer();
+                handleNavigate('home');
+              }}
+            />
+          ) : (
+            <VolunteerLoginView
+              onLoginSuccess={() => handleVolunteerLoginSuccess('volunteer-dashboard')}
+              onBackHome={() => handleNavigate('home')}
+            />
+          ))}
+
+        {activePage === 'volunteer-account' &&
+          (isVolunteerLoggedIn ? (
+            <VolunteerAccountView
+              onNavigateToOpportunities={() => handleNavigate('volunteer-dashboard')}
+              onNavigateToRegistrations={() => handleNavigate('my-registrations')}
+              onLogout={() => {
+                logoutVolunteer();
+                handleNavigate('home');
+              }}
+            />
+          ) : (
+            <VolunteerLoginView
+              onLoginSuccess={() => handleVolunteerLoginSuccess('volunteer-account')}
+              onBackHome={() => handleNavigate('home')}
+            />
+          ))}
 
         {activePage === 'my-registrations' && (
           <MyRegistrationsView
@@ -137,7 +192,7 @@ const MainApp: React.FC = () => {
         />
       )}
 
-      {/* Volunteer Registration Modal (Clean mount when opened) */}
+      {/* Volunteer Registration Modal */}
       {isRegisterModalOpen && (
         <VolunteerRegistrationModal
           isOpen={isRegisterModalOpen}
@@ -147,7 +202,7 @@ const MainApp: React.FC = () => {
         />
       )}
 
-      {/* Coordinator Login Modal (Clean mount when opened) */}
+      {/* Coordinator Login Modal */}
       {isCoordinatorModalOpen && (
         <CoordinatorLoginModal
           isOpen={isCoordinatorModalOpen}

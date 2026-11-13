@@ -14,18 +14,24 @@ import {
   Heart,
   ChevronRight,
   AlertCircle,
+  UserCheck,
+  LogOut,
 } from 'lucide-react';
 
 interface VolunteerDashboardProps {
   onOpenRegisterModal: (req?: VolunteerRequirement) => void;
   onNavigateToMyRegistrations: () => void;
+  onNavigateToMyAccount?: () => void;
+  onLogoutVolunteer?: () => void;
 }
 
 export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
   onOpenRegisterModal,
   onNavigateToMyRegistrations,
+  onNavigateToMyAccount,
+  onLogoutVolunteer,
 }) => {
-  const { requirements } = useSeva();
+  const { requirements, currentVolunteer } = useSeva();
   const [filterType, setFilterType] = useState<'all' | 'open' | 'almost-full'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -77,7 +83,11 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
         <div className="max-w-3xl space-y-3 relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 border border-[#C49A45]/40 text-xs font-semibold uppercase tracking-wider text-[#C49A45]">
             <Heart className="w-3.5 h-3.5 fill-current" />
-            <span>Volunteer Portal · Kidwai Memorial Hospital</span>
+            <span>
+              {currentVolunteer
+                ? `Welcome, ${currentVolunteer.name} · Kidwai Memorial Hospital`
+                : 'Volunteer Portal · Kidwai Memorial Hospital'}
+            </span>
           </div>
 
           <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#45382F] tracking-tight">
@@ -105,18 +115,40 @@ export const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
           </div>
         </div>
 
-        {/* Action shortcut to My Registrations */}
+        {/* Action shortcuts to My Registrations, My Account, and Logout */}
         <div className="mt-6 pt-6 border-t border-[#45382F]/10 flex flex-wrap items-center justify-between gap-4">
           <div className="text-xs text-[#45382F]/80">
-            Already registered? Check your upcoming schedule or view your Seva Pass.
+            {currentVolunteer
+              ? `Signed in as ${currentVolunteer.email}`
+              : 'Already registered? Check your upcoming schedule or view your Seva Pass.'}
           </div>
-          <button
-            onClick={onNavigateToMyRegistrations}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-[#FFFDF7] text-[#45382F] text-xs font-semibold border border-[#C49A45]/40 shadow-xs transition-colors cursor-pointer"
-          >
-            <span>Go to My Registrations</span>
-            <ChevronRight className="w-4 h-4 text-[#C49A45]" />
-          </button>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {onNavigateToMyAccount && currentVolunteer && (
+              <button
+                onClick={onNavigateToMyAccount}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white hover:bg-[#FFFDF7] text-[#45382F] text-xs font-semibold border border-[#C49A45]/40 shadow-xs transition-colors cursor-pointer"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-[#C49A45]" />
+                <span>My Account</span>
+              </button>
+            )}
+            <button
+              onClick={onNavigateToMyRegistrations}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-[#FFFDF7] text-[#45382F] text-xs font-semibold border border-[#C49A45]/40 shadow-xs transition-colors cursor-pointer"
+            >
+              <span>Go to My Registrations</span>
+              <ChevronRight className="w-4 h-4 text-[#C49A45]" />
+            </button>
+            {onLogoutVolunteer && currentVolunteer && (
+              <button
+                onClick={onLogoutVolunteer}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold border border-rose-200 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Logout</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

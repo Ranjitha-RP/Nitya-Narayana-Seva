@@ -92,6 +92,14 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenCoordinatorMod
               </li>
               <li>
                 <button
+                  onClick={() => onNavigate('volunteer-account')}
+                  className="hover:text-[#C49A45] transition-colors cursor-pointer text-left"
+                >
+                  Volunteer Login / My Account
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={onOpenCoordinatorModal}
                   className="hover:text-[#C49A45] transition-colors cursor-pointer text-left flex items-center gap-1.5"
                 >

@@ -263,7 +263,7 @@ export const CoordinatorLoginModal: React.FC<CoordinatorLoginModalProps> = ({
             </div>
 
             <div className="p-3.5 bg-[#F5EEDC]/80 rounded-2xl border border-[#C49A45]/20 text-[11px] text-[#45382F]/80">
-              <span className="font-semibold text-[#45382F]">Cloud Profile Saving:</span> Entering your name, phone, and matching PIN authenticates you and syncs your coordinator profile to Supabase.
+              <span className="font-semibold text-[#45382F]">Coordinator Profile:</span> Entering your name, phone, and matching PIN authenticates you and saves your coordinator profile.
             </div>
 
             <div className="pt-2">

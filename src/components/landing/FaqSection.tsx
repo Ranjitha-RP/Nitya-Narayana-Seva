@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowUpRight, ArrowDownRight, Phone, MessageSquare, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
-interface FaqSectionProps {
-  onContactCoordinators: () => void;
-}
-
-export const FaqSection: React.FC<FaqSectionProps> = ({ onContactCoordinators }) => {
+export const FaqSection: React.FC = () => {
   const [openIndex, setOpenIndex] = useState<number>(0);
 
   const faqs = [
@@ -86,41 +82,6 @@ export const FaqSection: React.FC<FaqSectionProps> = ({ onContactCoordinators })
               Everything you need to know about serving with Nitya Narayana Seva at Kidwai Memorial
               Institute of Oncology.
             </p>
-          </div>
-
-          {/* Coordinator Help Card matching reference screenshot */}
-          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#45382F]/10 shadow-lg space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#C49A45] text-white flex items-center justify-center font-bold text-base shadow-xs">
-                NNS
-              </div>
-              <div>
-                <h4 className="font-bold text-[#45382F] text-sm">Have more questions?</h4>
-                <p className="text-xs text-[#45382F]/70">Connect directly with our Seva coordinators</p>
-              </div>
-            </div>
-
-            <p className="text-xs text-[#45382F]/80 leading-relaxed">
-              We are available to answer inquiries regarding group volunteering, corporate CSR
-              support, or special date bookings.
-            </p>
-
-            <div className="pt-1 flex flex-col sm:flex-row gap-2">
-              <a
-                href="tel:+919845012345"
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#45382F] hover:bg-[#2D241E] text-white text-xs font-semibold uppercase tracking-wider transition-colors"
-              >
-                <Phone className="w-3.5 h-3.5 text-[#C49A45]" />
-                <span>Call Coordinator</span>
-              </a>
-              <button
-                onClick={onContactCoordinators}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#F5EEDC] hover:bg-[#EBE2CC] text-[#45382F] text-xs font-semibold uppercase tracking-wider border border-[#C49A45]/30 transition-colors"
-              >
-                <MessageSquare className="w-3.5 h-3.5 text-[#C49A45]" />
-                <span>WhatsApp Query</span>
-              </button>
-            </div>
           </div>
         </div>
       </div>

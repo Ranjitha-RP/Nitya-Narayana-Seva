@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSeva } from '../../context/SevaContext';
 import {
   Calendar,
@@ -25,12 +25,21 @@ export const MyRegistrationsView: React.FC<MyRegistrationsViewProps> = ({ onExpl
     registrations,
     currentVolunteerMobile,
     setCurrentVolunteerMobile,
+    currentVolunteer,
     cancelRegistration,
   } = useSeva();
 
-  // Mobile starts completely empty unless user has actually registered
-  const [lookupPhone, setLookupPhone] = useState(currentVolunteerMobile || '');
+  // Mobile starts empty unless user has logged in with phone or actually registered
+  const [lookupPhone, setLookupPhone] = useState(
+    currentVolunteer?.phone || currentVolunteerMobile || ''
+  );
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentVolunteer?.phone && !lookupPhone) {
+      setLookupPhone(currentVolunteer.phone);
+    }
+  }, [currentVolunteer]);
 
   const cleanPhone = lookupPhone.replace(/\D/g, '');
 

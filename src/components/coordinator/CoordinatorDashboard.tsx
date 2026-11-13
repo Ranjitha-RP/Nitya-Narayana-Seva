@@ -25,10 +25,6 @@ import {
   MessageSquare,
   Sparkles,
   Trash2,
-  Database,
-  RefreshCw,
-  ExternalLink,
-  Copy,
   X,
   UserCheck,
   User,
@@ -38,12 +34,6 @@ import {
   EyeOff,
   Save,
 } from 'lucide-react';
-import {
-  DEFAULT_SUPABASE_KEY,
-  DEFAULT_SUPABASE_PROJECT_ID,
-  DEFAULT_SUPABASE_URL,
-  SUPABASE_SQL_SCHEMA,
-} from '../../lib/supabase';
 
 interface CoordinatorDashboardProps {
   onLogout: () => void;
@@ -72,25 +62,12 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
     deleteRequirement,
     markAttendance,
     generateWhatsAppAnnouncement,
-    resetDemoData,
-    isSupabaseConnected,
-    supabaseProjectUrl,
-    updateSupabaseUrl,
-    isSyncing,
-    syncWithSupabase,
     currentCoordinator,
     updateCoordinatorProfile,
   } = useSeva();
 
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [copiedReqId, setCopiedReqId] = useState<string | null>(null);
-
-  // Supabase Modal & Settings State
-  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
-  const [inputSupabaseUrl, setInputSupabaseUrl] = useState(supabaseProjectUrl || '');
-  const [supabaseStatusMsg, setSupabaseStatusMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
-  const [copiedSql, setCopiedSql] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
 
   // Coordinator Profile State & Handlers
   const [profileNameInput, setProfileNameInput] = useState(currentCoordinator?.name || '');
@@ -110,7 +87,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
     }
     updateCoordinatorProfile({ name: profileNameInput.trim() });
     setIsEditingName(false);
-    setProfileNotice({ type: 'success', text: 'Coordinator name updated and saved to Supabase!' });
+    setProfileNotice({ type: 'success', text: 'Coordinator name updated and saved!' });
     setTimeout(() => setProfileNotice(null), 4000);
   };
 
@@ -130,43 +107,8 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
     setIsChangingPin(false);
     setNewPinInput('');
     setConfirmNewPinInput('');
-    setProfileNotice({ type: 'success', text: 'Security PIN updated and synced to Supabase profile!' });
+    setProfileNotice({ type: 'success', text: 'Security PIN updated successfully!' });
     setTimeout(() => setProfileNotice(null), 4000);
-  };
-
-  const handleTestOrSaveSupabase = async (urlToTest?: string) => {
-    const targetUrl = (urlToTest || inputSupabaseUrl || DEFAULT_SUPABASE_URL).trim();
-    setIsConnecting(true);
-    setSupabaseStatusMsg(null);
-    try {
-      const res = await updateSupabaseUrl(targetUrl);
-      if (res.success) {
-        setSupabaseStatusMsg({
-          type: 'success',
-          text: res.error || 'Connected to Supabase project! Volunteer and requirement data sync is active.',
-        });
-      } else {
-        setSupabaseStatusMsg({
-          type: 'error',
-          text: res.error || 'Connection check failed. Please verify project settings.',
-        });
-      }
-    } catch (err: any) {
-      setSupabaseStatusMsg({
-        type: 'error',
-        text: err?.message || 'Failed to connect to Supabase project.',
-      });
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const handleCopySql = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
-      setCopiedSql(true);
-      setTimeout(() => setCopiedSql(false), 3000);
-    }
   };
 
   // Form state for Create Requirement
@@ -431,36 +373,6 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
 
         {/* Bottom Actions */}
         <div className="pt-3 border-t border-white/10 space-y-2">
-          {/* Supabase DB Status Box */}
-          <div className="p-3 bg-white/5 border border-white/10 rounded-2xl space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 text-white/90 font-semibold">
-                <Database className="w-3.5 h-3.5 text-[#C49A45]" />
-                <span>Supabase Sync</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    isSupabaseConnected ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'
-                  }`}
-                />
-                <span className="text-[10px] text-white/60">
-                  {isSupabaseConnected ? 'Live' : 'Config'}
-                </span>
-              </span>
-            </div>
-            <button
-              onClick={() => {
-                setInputSupabaseUrl(supabaseProjectUrl || '');
-                setIsSupabaseModalOpen(true);
-              }}
-              className="w-full text-left text-[11px] font-semibold text-[#C49A45] hover:text-[#E2BC6B] flex items-center justify-between transition-colors cursor-pointer pt-0.5"
-            >
-              <span>{isSupabaseConnected ? 'Tables Synced ✓' : 'Setup Project URL'}</span>
-              <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-
           <button
             onClick={onNavigateToPublic}
             className="w-full flex items-center justify-between px-3 py-2 text-xs text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
@@ -496,22 +408,6 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => {
-                    setInputSupabaseUrl(supabaseProjectUrl || '');
-                    setIsSupabaseModalOpen(true);
-                  }}
-                  className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border transition-all cursor-pointer shadow-xs ${
-                    isSupabaseConnected
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-                      : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
-                  }`}
-                  title="Configure Supabase Cloud Backend"
-                >
-                  <Database className="w-4 h-4 text-emerald-600" />
-                  <span>{isSupabaseConnected ? 'Supabase: Connected ✓' : 'Supabase: Connect Backend'}</span>
-                </button>
-
                 <button
                   onClick={() => setActiveTab('create')}
                   className="px-4 py-2 bg-[#C49A45] hover:bg-[#A57F32] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
@@ -1530,22 +1426,6 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                 </div>
               </div>
             </div>
-
-            {/* Demo state reset utility */}
-            <div className="p-6 bg-[#F5EEDC] rounded-3xl border border-[#C49A45]/30 space-y-3">
-              <h4 className="font-bold text-sm text-[#45382F]">Demo Environment Tools</h4>
-              <p className="text-xs text-[#45382F]/75">
-                Want to reset sample volunteer registrations and slot availability to initial state?
-              </p>
-              <button
-                onClick={() => {
-                  resetDemoData();
-                }}
-                className="px-4 py-2 bg-[#45382F] text-white text-xs font-semibold rounded-xl hover:bg-[#2D241E] transition-colors cursor-pointer"
-              >
-                Reset Demo Data
-              </button>
-            </div>
           </div>
         )}
 
@@ -1723,15 +1603,15 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                   <p className="text-[11px] text-[#45382F]/60">Gate 2 Operations Desk • Daily ~800 People Served</p>
                 </div>
 
-                {/* Cloud Database Record */}
+                {/* Coordinator Account Record */}
                 <div className="p-4 rounded-2xl bg-[#FFFDF7] border border-[#45382F]/10 space-y-1">
                   <div className="flex items-center justify-between text-[#45382F]/60">
                     <span className="font-semibold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                      <Database className="w-3.5 h-3.5 text-[#C49A45]" />
-                      <span>Supabase Cloud Record</span>
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#C49A45]" />
+                      <span>Coordinator Session</span>
                     </span>
                     <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">
-                      Table: nns_coordinators
+                      Verified Lead
                     </span>
                   </div>
                   <p className="font-mono text-[11px] text-[#45382F] break-all pt-0.5">
@@ -1881,184 +1761,9 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                 </div>
               </div>
             </div>
-
-            {/* Supabase Integration Shortcut */}
-            <div className="p-6 bg-[#45382F] text-white rounded-3xl shadow-sm space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <Database className="w-5 h-5 text-[#C49A45]" />
-                  <h3 className="font-serif text-base font-bold">Supabase Cloud Database Status</h3>
-                </div>
-                <span className="px-2.5 py-1 bg-white/10 text-white rounded-lg text-xs font-mono font-medium">
-                  {DEFAULT_SUPABASE_PROJECT_ID}
-                </span>
-              </div>
-              <p className="text-xs text-white/80 leading-relaxed">
-                Your coordinator profile, requirements, and volunteer sign-ups sync directly with your connected Supabase PostgreSQL backend tables (<code className="text-[#C49A45]">nns_coordinators</code>, <code className="text-[#C49A45]">nns_requirements</code>, <code className="text-[#C49A45]">nns_registrations</code>).
-              </p>
-              <div className="pt-2 flex items-center gap-3">
-                <button
-                  onClick={() => setIsSupabaseModalOpen(true)}
-                  className="px-4 py-2 bg-[#C49A45] hover:bg-[#A57F32] text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Database className="w-3.5 h-3.5" />
-                  <span>View Database Schema & Sync</span>
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </main>
-      {/* Supabase Cloud Backend Integration Modal */}
-      {isSupabaseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-fadeIn">
-          <div className="relative w-full max-w-2xl bg-[#FFFDF7] rounded-3xl shadow-2xl border border-[#45382F]/15 overflow-hidden my-8">
-            {/* Header */}
-            <div className="bg-[#45382F] text-white p-6 sm:p-7 relative">
-              <button
-                onClick={() => setIsSupabaseModalOpen(false)}
-                className="absolute top-5 right-5 p-2 rounded-full hover:bg-white/10 text-white transition-colors cursor-pointer"
-                aria-label="Close modal"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#C49A45] mb-1">
-                <Database className="w-4 h-4" />
-                <span>Cloud Database Integration</span>
-              </div>
-              <h2 className="font-serif text-2xl font-bold tracking-tight">
-                Supabase Backend Sync
-              </h2>
-              <p className="text-xs sm:text-sm text-white/80 mt-1">
-                Connected to Project ID: <code className="bg-white/10 px-2 py-0.5 rounded font-mono text-[#C49A45]">{DEFAULT_SUPABASE_PROJECT_ID}</code>
-              </p>
-            </div>
-
-            {/* Body */}
-            <div className="p-6 sm:p-7 space-y-6 text-xs text-[#45382F]">
-              {/* Connection Status Card */}
-              <div className="p-4 rounded-2xl bg-white border border-[#45382F]/15 space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="font-bold text-sm text-[#45382F]">
-                      Live Supabase Connection
-                    </span>
-                  </div>
-                  <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg font-semibold text-[11px]">
-                    API Key Active
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#45382F]/10">
-                  <div>
-                    <span className="text-[#45382F]/60 block text-[11px]">Project URL:</span>
-                    <span className="font-mono font-medium text-[#45382F] break-all">
-                      {DEFAULT_SUPABASE_URL}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[#45382F]/60 block text-[11px]">Publishable Key:</span>
-                    <span className="font-mono font-medium text-[#45382F] break-all">
-                      {DEFAULT_SUPABASE_KEY.slice(0, 20)}...
-                    </span>
-                  </div>
-                </div>
-
-                {supabaseStatusMsg && (
-                  <div
-                    className={`p-3 rounded-xl text-xs font-medium ${
-                      supabaseStatusMsg.type === 'success'
-                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                        : 'bg-rose-50 text-rose-800 border border-rose-200'
-                    }`}
-                  >
-                    {supabaseStatusMsg.text}
-                  </div>
-                )}
-
-                <div className="flex items-center gap-3 pt-2 flex-wrap">
-                  <button
-                    onClick={() => handleTestOrSaveSupabase()}
-                    disabled={isConnecting}
-                    className="px-4 py-2 bg-[#819B82] hover:bg-[#688269] text-white font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isConnecting ? 'animate-spin' : ''}`} />
-                    <span>{isConnecting ? 'Testing...' : 'Test Connection & Sync'}</span>
-                  </button>
-
-                  <a
-                    href={`https://supabase.com/dashboard/project/${DEFAULT_SUPABASE_PROJECT_ID}/sql/new`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2 bg-[#F5EEDC] hover:bg-[#EBE2CC] text-[#45382F] font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
-                  >
-                    <span>Open Supabase SQL Editor</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-[#C49A45]" />
-                  </a>
-                </div>
-              </div>
-
-              {/* Table Initializer Guide */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h3 className="font-bold text-sm text-[#45382F]">
-                    Required Tables: <code className="text-[#C49A45]">nns_requirements</code>, <code className="text-[#C49A45]">nns_registrations</code> & <code className="text-[#C49A45]">nns_coordinators</code>
-                  </h3>
-                  <button
-                    onClick={handleCopySql}
-                    className="px-3 py-1.5 bg-[#C49A45] hover:bg-[#A57F32] text-white font-semibold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95 shadow-xs"
-                  >
-                    {copiedSql ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Copied SQL!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy SQL Setup Script</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <p className="text-xs text-[#45382F]/75">
-                  To ensure all volunteer registrations, requirements, and coordinator profiles are stored in your Supabase backend, open your Supabase SQL Editor and run the script below. It creates the 3 tables with Row Level Security (RLS) policies:
-                </p>
-
-                <div className="relative bg-[#2D241E] text-white p-4 rounded-2xl font-mono text-[11px] max-h-52 overflow-y-auto leading-relaxed border border-white/10">
-                  <pre>{SUPABASE_SQL_SCHEMA}</pre>
-                </div>
-              </div>
-
-              {/* Live Behavior Explanation */}
-              <div className="p-4 bg-[#F5EEDC] rounded-2xl border border-[#C49A45]/30 space-y-2">
-                <h4 className="font-bold text-xs text-[#45382F] flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#C49A45]" />
-                  <span>How Portal Data is Saved in Supabase</span>
-                </h4>
-                <ul className="space-y-1 text-[#45382F]/80 text-[11px] list-disc list-inside">
-                  <li><strong>Coordinator Profiles & Security PINs:</strong> Coordinator names, mobile numbers, security PINs, and login records are saved and upserted in <code className="font-mono bg-white/60 px-1 py-0.5 rounded">nns_coordinators</code>.</li>
-                  <li><strong>Volunteer Sign-ups:</strong> Whenever someone registers online, their details (name, phone, gender, shift) are automatically inserted into <code className="font-mono bg-white/60 px-1 py-0.5 rounded">nns_registrations</code>.</li>
-                  <li><strong>Coordinator Requirements:</strong> Publishing, updating, or deleting an event directly syncs with <code className="font-mono bg-white/60 px-1 py-0.5 rounded">nns_requirements</code>.</li>
-                  <li><strong>Attendance Tracking:</strong> Marking volunteers as Present, Absent, or Pending updates their record in Supabase in real time.</li>
-                </ul>
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={() => setIsSupabaseModalOpen(false)}
-                  className="px-5 py-2.5 bg-[#45382F] hover:bg-[#2D241E] text-white font-semibold rounded-xl transition-colors cursor-pointer"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
